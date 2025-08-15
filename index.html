@@ -4,64 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fine's Match Cards Memory Game</title>
+    <meta name="description" content="لعبة مطابقة البطاقات من Fine's - تحدى ذاكرتك">
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        body { margin: 0; padding: 0; min-height: 100vh; }
+    </style>
 </head>
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        // ضع كود اللعبة كاملاً هنا
-        // بدءاً من import React وحتى export default
-    </script>
-</body>
-</html>import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shuffle, RotateCcw, Trophy, Timer, Star, User, Crown, Medal, Award, Upload, Download, Wifi, WifiOff } from 'lucide-react';
 
 const FinessMatchCardsMemoryGame = () => {
   // Google Drive API Configuration - REPLACE WITH YOUR ACTUAL VALUES
   const GOOGLE_DRIVE_CONFIG = {
     apiKey: 'AIzaSyCsnOY2PyUJnsx8CTAGCoLLHG6fAaKs4tg',
-    clientId: '    clientId: '608622142333-r9tpvn39sioqdn2tfnaij24jqscd5s2v.apps.googleusercontent.com', // Replace with your NEW Client ID',
+    clientId: '608622142333-r9tpvn39sioqdn2tfnaij24jqscd5s2v.apps.googleusercontent.com',
     discoveryDoc: 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
     scopes: 'https://www.googleapis.com/auth/drive.file'
   };
 
-  // Fine's Logo Component
-  const FinesLogo = ({ className = "w-16 h-16" }) => (
-    <svg className={className} viewBox="0 0 120 40" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="finesGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#FFB366" />
-          <stop offset="50%" stopColor="#FF6B9D" />
-          <stop offset="100%" stopColor="#C44285" />
-        </linearGradient>
-        <filter id="textShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="1" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.4"/>
-        </filter>
-      </defs>
-      
-      {/* Background Ribbon */}
-      <path d="M5 8 L110 5 Q115 8 112 12 L108 32 Q105 35 100 33 L8 30 Q3 28 5 25 Z" 
-            fill="url(#finesGradient)" />
-      
-      {/* Fine's Text */}
-      <text x="60" y="24" 
-            fill="white" 
-            fontSize="16" 
-            fontFamily="Arial, sans-serif" 
-            fontWeight="bold" 
-            textAnchor="middle" 
-            filter="url(#textShadow)"
-            style={{letterSpacing: '0.5px'}}>
-        fine's
-      </text>
-      
-      {/* Highlight effect */}
-      <path d="M8 12 L105 10" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
-    </svg>
-  );
   const supplements = [
     { id: 1, name: 'Super Immune Booster', image: '🛡️', color: 'from-orange-400 to-red-500' },
     { id: 2, name: 'Sleep Aid', image: '🌙', color: 'from-blue-400 to-indigo-600' },
@@ -94,7 +61,7 @@ const FinessMatchCardsMemoryGame = () => {
   // Google Drive integration state
   const [isGapiLoaded, setIsGapiLoaded] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
-  const [syncStatus, setSyncStatus] = useState('offline'); // 'offline', 'syncing', 'online', 'error'
+  const [syncStatus, setSyncStatus] = useState('offline');
   const [lastSyncTime, setLastSyncTime] = useState(null);
 
   // Google Drive file settings
@@ -104,7 +71,6 @@ const FinessMatchCardsMemoryGame = () => {
   useEffect(() => {
     const initializeGapi = async () => {
       try {
-        // Load Google API script
         if (!window.gapi) {
           const script = document.createElement('script');
           script.src = 'https://apis.google.com/js/api.js';
@@ -145,12 +111,10 @@ const FinessMatchCardsMemoryGame = () => {
       } catch (error) {
         console.error('Error initializing Google API:', error);
         setSyncStatus('error');
-        // Fallback to local storage
         loadLeaderboardFromLocal();
       }
     };
 
-    // Check if API keys are configured
     if (GOOGLE_DRIVE_CONFIG.apiKey === 'YOUR_GOOGLE_DRIVE_API_KEY_HERE') {
       setSyncStatus('error');
       loadLeaderboardFromLocal();
@@ -187,7 +151,6 @@ const FinessMatchCardsMemoryGame = () => {
     try {
       setSyncStatus('syncing');
       
-      // Search for existing leaderboard file
       const response = await window.gapi.client.drive.files.list({
         q: `name='${LEADERBOARD_FILE_NAME}' and parents in 'appDataFolder'`,
         spaces: 'appDataFolder'
@@ -209,7 +172,6 @@ const FinessMatchCardsMemoryGame = () => {
     } catch (error) {
       console.error('Error loading leaderboard from Drive:', error);
       setSyncStatus('error');
-      // Fallback to local storage
       loadLeaderboardFromLocal();
     }
   };
@@ -219,7 +181,6 @@ const FinessMatchCardsMemoryGame = () => {
     try {
       setSyncStatus('syncing');
 
-      // Search for existing file
       const searchResponse = await window.gapi.client.drive.files.list({
         q: `name='${LEADERBOARD_FILE_NAME}' and parents in 'appDataFolder'`,
         spaces: 'appDataFolder'
@@ -245,7 +206,6 @@ const FinessMatchCardsMemoryGame = () => {
         close_delim;
 
       if (searchResponse.result.files.length > 0) {
-        // Update existing file
         const fileId = searchResponse.result.files[0].id;
         await window.gapi.client.request({
           'path': `https://www.googleapis.com/upload/drive/v3/files/${fileId}`,
@@ -257,7 +217,6 @@ const FinessMatchCardsMemoryGame = () => {
           'body': multipartRequestBody
         });
       } else {
-        // Create new file
         await window.gapi.client.request({
           'path': 'https://www.googleapis.com/upload/drive/v3/files',
           'method': 'POST',
@@ -274,7 +233,6 @@ const FinessMatchCardsMemoryGame = () => {
     } catch (error) {
       console.error('Error saving to Drive:', error);
       setSyncStatus('error');
-      // Fallback to local storage
       saveLeaderboardToLocal(data);
     }
   };
@@ -345,7 +303,6 @@ const FinessMatchCardsMemoryGame = () => {
     
     setLeaderboard(updatedLeaderboard);
 
-    // Save to appropriate storage
     if (isSignedIn && isGapiLoaded) {
       await saveLeaderboardToDrive(updatedLeaderboard);
     } else {
@@ -395,11 +352,9 @@ const FinessMatchCardsMemoryGame = () => {
       const secondCard = cards.find(c => c.id === secondCardId);
 
       if (firstCard.supplementId === secondCard.supplementId) {
-        // Match found
         setTimeout(() => {
           setMatchedCards(prev => {
             const newMatched = [...prev, firstCardId, secondCardId];
-            // Check if all 24 cards (12 pairs) are matched
             if (newMatched.length === 24) {
               setGameCompleted(true);
               setTimeout(saveScore, 500);
@@ -412,7 +367,6 @@ const FinessMatchCardsMemoryGame = () => {
           setScore(prev => prev + 100 + timeBonus + moveBonus);
         }, 1000);
       } else {
-        // No match - flip cards back
         setTimeout(() => {
           setFlippedCards([]);
         }, 1000);
@@ -774,4 +728,11 @@ const FinessMatchCardsMemoryGame = () => {
   );
 };
 
-export default FinessMatchCardsMemoryGame;
+export default FinessMatchCardsMemoryGame;        // من const FinessMatchCardsMemoryGame = () => {
+        // حتى export default FinessMatchCardsMemoryGame;
+        
+        // ثم أضف هذا السطر في النهاية:
+        ReactDOM.render(React.createElement(FinessMatchCardsMemoryGame), document.getElementById('root'));
+    </script>
+</body>
+</html>
