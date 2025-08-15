@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fine's Match Cards Memory Game</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        // ضع كود اللعبة كاملاً هنا
+        // بدءاً من import React وحتى export default
+    </script>
+</body>
+</html>import React, { useState, useEffect } from 'react';
+import { Shuffle, RotateCcw, Trophy, Timer, Star, User, Crown, Medal, Award, Upload, Download, Wifi, WifiOff } from 'lucide-react';
+
+const FinessMatchCardsMemoryGame = () => {
+  // Google Drive API Configuration - REPLACE WITH YOUR ACTUAL VALUES
+  const GOOGLE_DRIVE_CONFIG = {
+    apiKey: 'AIzaSyCsnOY2PyUJnsx8CTAGCoLLHG6fAaKs4tg',
+    clientId: '    clientId: '608622142333-r9tpvn39sioqdn2tfnaij24jqscd5s2v.apps.googleusercontent.com', // Replace with your NEW Client ID',
+    discoveryDoc: 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
+    scopes: 'https://www.googleapis.com/auth/drive.file'
+  };
+
+  // Fine's Logo Component
+  const FinesLogo = ({ className = "w-16 h-16" }) => (
+    <svg className={className} viewBox="0 0 120 40" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="finesGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#FFB366" />
+          <stop offset="50%" stopColor="#FF6B9D" />
+          <stop offset="100%" stopColor="#C44285" />
+        </linearGradient>
+        <filter id="textShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="1" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.4"/>
+        </filter>
+      </defs>
+      
+      {/* Background Ribbon */}
+      <path d="M5 8 L110 5 Q115 8 112 12 L108 32 Q105 35 100 33 L8 30 Q3 28 5 25 Z" 
+            fill="url(#finesGradient)" />
+      
+      {/* Fine's Text */}
+      <text x="60" y="24" 
+            fill="white" 
+            fontSize="16" 
+            fontFamily="Arial, sans-serif" 
+            fontWeight="bold" 
+            textAnchor="middle" 
+            filter="url(#textShadow)"
+            style={{letterSpacing: '0.5px'}}>
+        fine's
+      </text>
+      
+      {/* Highlight effect */}
+      <path d="M8 12 L105 10" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
+    </svg>
+  );
+  const supplements = [
+    { id: 1, name: 'Super Immune Booster', image: '🛡️', color: 'from-orange-400 to-red-500' },
+    { id: 2, name: 'Sleep Aid', image: '🌙', color: 'from-blue-400 to-indigo-600' },
+    { id: 3, name: 'Sleep Well', image: '😴', color: 'from-pink-300 to-purple-400' },
+    { id: 4, name: 'Ultra Omega', image: '🧠', color: 'from-cyan-400 to-blue-500' },
+    { id: 5, name: 'Appetite Booster', image: '🍽️', color: 'from-green-400 to-emerald-500' },
+    { id: 6, name: 'Fine\'s B12', image: '⚡', color: 'from-pink-400 to-purple-600' },
+    { id: 7, name: 'Bone Booster', image: '🦴', color: 'from-yellow-400 to-orange-500' },
+    { id: 8, name: 'Eye Care', image: '👁️', color: 'from-blue-400 to-purple-500' },
+    { id: 9, name: 'Hair Booster', image: '💇‍♀️', color: 'from-teal-400 to-cyan-500' },
+    { id: 10, name: 'Iron Support', image: '🩸', color: 'from-red-400 to-red-600' },
+    { id: 11, name: 'Multivitamin', image: '🌈', color: 'from-cyan-400 to-blue-500' },
+    { id: 12, name: 'Probiotic', image: '🦠', color: 'from-purple-400 to-indigo-500' }
+  ];
+
+  // Game state
+  const [playerName, setPlayerName] = useState('');
+  const [gameStarted, setGameStarted] = useState(false);
+  const [showNameInput, setShowNameInput] = useState(true);
+  const [cards, setCards] = useState([]);
+  const [flippedCards, setFlippedCards] = useState([]);
+  const [matchedCards, setMatchedCards] = useState([]);
+  const [score, setScore] = useState(0);
+  const [moves, setMoves] = useState(0);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [gameCompleted, setGameCompleted] = useState(false);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+
+  // Google Drive integration state
+  const [isGapiLoaded, setIsGapiLoaded] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('offline'); // 'offline', 'syncing', 'online', 'error'
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+
+  // Google Drive file settings
+  const LEADERBOARD_FILE_NAME = 'fines_match_cards_leaderboard.json';
+
+  // Initialize Google API
+  useEffect(() => {
+    const initializeGapi = async () => {
+      try {
+        // Load Google API script
+        if (!window.gapi) {
+          const script = document.createElement('script');
+          script.src = 'https://apis.google.com/js/api.js';
+          script.onload = () => loadGapi();
+          document.head.appendChild(script);
+        } else {
+          loadGapi();
+        }
+      } catch (error) {
+        console.error('Error loading Google API:', error);
+        setSyncStatus('error');
+      }
+    };
+
+    const loadGapi = async () => {
+      try {
+        await new Promise((resolve) => {
+          window.gapi.load('auth2:client', resolve);
+        });
+
+        await window.gapi.client.init({
+          apiKey: GOOGLE_DRIVE_CONFIG.apiKey,
+          clientId: GOOGLE_DRIVE_CONFIG.clientId,
+          discoveryDocs: [GOOGLE_DRIVE_CONFIG.discoveryDoc],
+          scope: GOOGLE_DRIVE_CONFIG.scopes
+        });
+
+        const authInstance = window.gapi.auth2.getAuthInstance();
+        setIsSignedIn(authInstance.isSignedIn.get());
+        setIsGapiLoaded(true);
+        
+        if (authInstance.isSignedIn.get()) {
+          setSyncStatus('online');
+          loadLeaderboardFromDrive();
+        }
+
+        authInstance.isSignedIn.listen(setIsSignedIn);
+      } catch (error) {
+        console.error('Error initializing Google API:', error);
+        setSyncStatus('error');
+        // Fallback to local storage
+        loadLeaderboardFromLocal();
+      }
+    };
+
+    // Check if API keys are configured
+    if (GOOGLE_DRIVE_CONFIG.apiKey === 'YOUR_GOOGLE_DRIVE_API_KEY_HERE') {
+      setSyncStatus('error');
+      loadLeaderboardFromLocal();
+    } else {
+      initializeGapi();
+    }
+  }, []);
+
+  // Google Drive Authentication
+  const signInToGoogle = async () => {
+    try {
+      const authInstance = window.gapi.auth2.getAuthInstance();
+      await authInstance.signIn();
+      setSyncStatus('online');
+      loadLeaderboardFromDrive();
+    } catch (error) {
+      console.error('Sign in error:', error);
+      setSyncStatus('error');
+    }
+  };
+
+  const signOutFromGoogle = async () => {
+    try {
+      const authInstance = window.gapi.auth2.getAuthInstance();
+      await authInstance.signOut();
+      setSyncStatus('offline');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
+  // Load leaderboard from Google Drive
+  const loadLeaderboardFromDrive = async () => {
+    try {
+      setSyncStatus('syncing');
+      
+      // Search for existing leaderboard file
+      const response = await window.gapi.client.drive.files.list({
+        q: `name='${LEADERBOARD_FILE_NAME}' and parents in 'appDataFolder'`,
+        spaces: 'appDataFolder'
+      });
+
+      if (response.result.files.length > 0) {
+        const fileId = response.result.files[0].id;
+        const fileContent = await window.gapi.client.drive.files.get({
+          fileId: fileId,
+          alt: 'media'
+        });
+
+        const leaderboardData = JSON.parse(fileContent.body);
+        setLeaderboard(leaderboardData);
+        setLastSyncTime(new Date());
+      }
+      
+      setSyncStatus('online');
+    } catch (error) {
+      console.error('Error loading leaderboard from Drive:', error);
+      setSyncStatus('error');
+      // Fallback to local storage
+      loadLeaderboardFromLocal();
+    }
+  };
+
+  // Save leaderboard to Google Drive
+  const saveLeaderboardToDrive = async (data) => {
+    try {
+      setSyncStatus('syncing');
+
+      // Search for existing file
+      const searchResponse = await window.gapi.client.drive.files.list({
+        q: `name='${LEADERBOARD_FILE_NAME}' and parents in 'appDataFolder'`,
+        spaces: 'appDataFolder'
+      });
+
+      const fileContent = JSON.stringify(data, null, 2);
+      const boundary = '-------314159265358979323846';
+      const delimiter = "\r\n--" + boundary + "\r\n";
+      const close_delim = "\r\n--" + boundary + "--";
+
+      const metadata = {
+        'name': LEADERBOARD_FILE_NAME,
+        'parents': ['appDataFolder']
+      };
+
+      const multipartRequestBody =
+        delimiter +
+        'Content-Type: application/json\r\n\r\n' +
+        JSON.stringify(metadata) +
+        delimiter +
+        'Content-Type: application/json\r\n\r\n' +
+        fileContent +
+        close_delim;
+
+      if (searchResponse.result.files.length > 0) {
+        // Update existing file
+        const fileId = searchResponse.result.files[0].id;
+        await window.gapi.client.request({
+          'path': `https://www.googleapis.com/upload/drive/v3/files/${fileId}`,
+          'method': 'PATCH',
+          'params': {'uploadType': 'multipart'},
+          'headers': {
+            'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+          },
+          'body': multipartRequestBody
+        });
+      } else {
+        // Create new file
+        await window.gapi.client.request({
+          'path': 'https://www.googleapis.com/upload/drive/v3/files',
+          'method': 'POST',
+          'params': {'uploadType': 'multipart'},
+          'headers': {
+            'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+          },
+          'body': multipartRequestBody
+        });
+      }
+
+      setLastSyncTime(new Date());
+      setSyncStatus('online');
+    } catch (error) {
+      console.error('Error saving to Drive:', error);
+      setSyncStatus('error');
+      // Fallback to local storage
+      saveLeaderboardToLocal(data);
+    }
+  };
+
+  // Local storage fallback functions
+  const loadLeaderboardFromLocal = () => {
+    try {
+      const saved = localStorage.getItem('fines_matchCards_leaderboard');
+      if (saved) {
+        setLeaderboard(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('Error loading from local storage:', error);
+    }
+  };
+
+  const saveLeaderboardToLocal = (data) => {
+    try {
+      localStorage.setItem('fines_matchCards_leaderboard', JSON.stringify(data));
+    } catch (error) {
+      console.error('Error saving to local storage:', error);
+    }
+  };
+
+  // Initialize game
+  const initializeGame = () => {
+    const duplicatedSupplements = [...supplements, ...supplements];
+    const shuffledCards = duplicatedSupplements
+      .sort(() => Math.random() - 0.5)
+      .map((supplement, index) => ({
+        id: index,
+        supplementId: supplement.id,
+        name: supplement.name,
+        image: supplement.image,
+        color: supplement.color,
+        isFlipped: false,
+        isMatched: false
+      }));
+    
+    setCards(shuffledCards);
+    setFlippedCards([]);
+    setMatchedCards([]);
+    setScore(0);
+    setMoves(0);
+    setTimeElapsed(0);
+    setGameStarted(false);
+    setGameCompleted(false);
+  };
+
+  // Save score to leaderboard
+  const saveScore = async () => {
+    const newScore = {
+      name: playerName,
+      score: score,
+      moves: moves,
+      time: timeElapsed,
+      date: new Date().toLocaleDateString(),
+      timestamp: new Date().toISOString()
+    };
+    
+    const updatedLeaderboard = [...leaderboard, newScore]
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (a.time !== b.time) return a.time - b.time;
+        return a.moves - b.moves;
+      })
+      .slice(0, 10);
+    
+    setLeaderboard(updatedLeaderboard);
+
+    // Save to appropriate storage
+    if (isSignedIn && isGapiLoaded) {
+      await saveLeaderboardToDrive(updatedLeaderboard);
+    } else {
+      saveLeaderboardToLocal(updatedLeaderboard);
+    }
+  };
+
+  // Game timer
+  useEffect(() => {
+    let interval;
+    if (gameStarted && !gameCompleted) {
+      interval = setInterval(() => {
+        setTimeElapsed(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [gameStarted, gameCompleted]);
+
+  // Initialize game on mount
+  useEffect(() => {
+    initializeGame();
+  }, []);
+
+  // Handle game start
+  const handleStartGame = () => {
+    if (playerName.trim()) {
+      setShowNameInput(false);
+      initializeGame();
+    }
+  };
+
+  // Handle card click
+  const handleCardClick = (cardId) => {
+    if (!gameStarted) setGameStarted(true);
+    
+    const card = cards.find(c => c.id === cardId);
+    if (card.isFlipped || card.isMatched || flippedCards.length === 2) return;
+
+    const newFlippedCards = [...flippedCards, cardId];
+    setFlippedCards(newFlippedCards);
+
+    if (newFlippedCards.length === 2) {
+      setMoves(prev => prev + 1);
+      
+      const [firstCardId, secondCardId] = newFlippedCards;
+      const firstCard = cards.find(c => c.id === firstCardId);
+      const secondCard = cards.find(c => c.id === secondCardId);
+
+      if (firstCard.supplementId === secondCard.supplementId) {
+        // Match found
+        setTimeout(() => {
+          setMatchedCards(prev => {
+            const newMatched = [...prev, firstCardId, secondCardId];
+            // Check if all 24 cards (12 pairs) are matched
+            if (newMatched.length === 24) {
+              setGameCompleted(true);
+              setTimeout(saveScore, 500);
+            }
+            return newMatched;
+          });
+          setFlippedCards([]);
+          const timeBonus = Math.max(0, 300 - timeElapsed);
+          const moveBonus = Math.max(0, 50 - moves) * 10;
+          setScore(prev => prev + 100 + timeBonus + moveBonus);
+        }, 1000);
+      } else {
+        // No match - flip cards back
+        setTimeout(() => {
+          setFlippedCards([]);
+        }, 1000);
+      }
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const isCardFlipped = (cardId) => {
+    return flippedCards.includes(cardId) || matchedCards.includes(cardId);
+  };
+
+  const isCardMatched = (cardId) => {
+    return matchedCards.includes(cardId);
+  };
+
+  const getRankIcon = (index) => {
+    switch (index) {
+      case 0: return <Crown className="text-yellow-500 w-6 h-6" />;
+      case 1: return <Medal className="text-gray-400 w-6 h-6" />;
+      case 2: return <Award className="text-orange-600 w-6 h-6" />;
+      default: return <Trophy className="text-blue-500 w-5 h-5" />;
+    }
+  };
+
+  const getSyncStatusIcon = () => {
+    switch (syncStatus) {
+      case 'online': return <Wifi className="text-green-400 w-4 h-4" />;
+      case 'syncing': return <Upload className="text-blue-400 w-4 h-4 animate-pulse" />;
+      case 'offline': return <WifiOff className="text-gray-400 w-4 h-4" />;
+      case 'error': return <WifiOff className="text-red-400 w-4 h-4" />;
+      default: return <WifiOff className="text-gray-400 w-4 h-4" />;
+    }
+  };
+
+  const getSyncStatusText = () => {
+    switch (syncStatus) {
+      case 'online': return 'متصل - Google Drive';
+      case 'syncing': return 'جاري المزامنة...';
+      case 'offline': return 'غير متصل';
+      case 'error': return 'خطأ في الاتصال';
+      default: return 'غير متصل';
+    }
+  };
+
+  if (showNameInput) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 max-w-md w-full border border-white/20">
+          {/* Sync Status */}
+          <div className="flex items-center justify-between mb-4 p-2 bg-white/5 rounded-lg">
+            <div className="flex items-center gap-2 text-sm">
+              {getSyncStatusIcon()}
+              <span className="text-white/80">{getSyncStatusText()}</span>
+            </div>
+            {lastSyncTime && (
+              <span className="text-white/60 text-xs">
+                آخر مزامنة: {lastSyncTime.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+
+          {/* Google Drive Connection */}
+          {isGapiLoaded && !isSignedIn && syncStatus !== 'error' && (
+            <div className="mb-4 p-3 bg-blue-500/20 rounded-lg border border-blue-500/30">
+              <p className="text-blue-200 text-sm mb-2">
+                للحفظ التلقائي في Google Drive
+              </p>
+              <button
+                onClick={signInToGoogle}
+                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+              >
+                تسجيل الدخول إلى Google
+              </button>
+            </div>
+          )}
+
+          {/* API Configuration Warning */}
+          {syncStatus === 'error' && GOOGLE_DRIVE_CONFIG.apiKey === 'YOUR_GOOGLE_DRIVE_API_KEY_HERE' && (
+            <div className="mb-4 p-3 bg-red-500/20 rounded-lg border border-red-500/30">
+              <p className="text-red-200 text-sm">
+                ⚠️ يرجى تكوين Google Drive API للحفظ السحابي
+              </p>
+            </div>
+          )}
+
+          <div className="text-center mb-6">
+            <Star className="text-yellow-400 w-16 h-16 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-white mb-2">Fine's Match Cards Memory Game</h1>
+            <p className="text-purple-200">اكتشف الأزواج المتطابقة واحصل على أفضل النقاط</p>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-white font-semibold mb-2 text-right">
+                <User className="inline w-5 h-5 ml-2" />
+                ادخل اسمك
+              </label>
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-white/20 border border-white/30 text-white placeholder-white/70 text-right focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="مثال: أحمد محمد"
+                dir="rtl"
+                onKeyPress={(e) => e.key === 'Enter' && handleStartGame()}
+              />
+            </div>
+            
+            <button
+              onClick={handleStartGame}
+              disabled={!playerName.trim()}
+              className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-700 text-white rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
+            >
+              ابدأ اللعبة
+            </button>
+            
+            <button
+              onClick={() => setShowLeaderboard(true)}
+              className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold transition-all duration-200 hover:scale-105"
+            >
+              <Trophy className="inline w-5 h-5 ml-2" />
+              عرض التصنيفات
+            </button>
+          </div>
+        </div>
+        
+        {/* Leaderboard Modal */}
+        {showLeaderboard && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl max-w-md w-full max-h-96 overflow-hidden border border-white/20">
+              <div className="p-6 border-b border-white/20">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-white">
+                    <Trophy className="inline w-6 h-6 ml-2" />
+                    أفضل اللاعبين
+                  </h2>
+                  <div className="flex items-center gap-1">
+                    {getSyncStatusIcon()}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-4 overflow-y-auto max-h-64">
+                {leaderboard.length === 0 ? (
+                  <p className="text-purple-200 text-center">لا توجد نتائج بعد</p>
+                ) : (
+                  <div className="space-y-3">
+                    {leaderboard.map((player, index) => (
+                      <div key={index} className="bg-white/10 rounded-lg p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {getRankIcon(index)}
+                          <div className="text-right">
+                            <div className="text-white font-semibold">{player.name}</div>
+                            <div className="text-purple-200 text-sm">
+                              {formatTime(player.time)} - {player.moves} حركة
+                            </div>
+                            <div className="text-purple-300 text-xs">{player.date}</div>
+                          </div>
+                        </div>
+                        <div className="text-yellow-400 font-bold text-lg">{player.score}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-4 border-t border-white/20">
+                {isSignedIn && (
+                  <button
+                    onClick={signOutFromGoogle}
+                    className="w-full py-2 mb-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-lg text-sm transition-colors"
+                  >
+                    تسجيل الخروج من Google
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowLeaderboard(false)}
+                  className="w-full py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
+                >
+                  إغلاق
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Star className="text-yellow-400" />
+            <h1 className="text-3xl font-bold text-white">أهلاً {playerName}</h1>
+            <Star className="text-yellow-400" />
+          </div>
+          <p className="text-purple-200">Fine's Match Cards Memory Game - اعثر على الأزواج المتطابقة</p>
+          
+          {/* Sync Status Bar */}
+          <div className="mt-4 flex items-center justify-center gap-2 text-sm">
+            {getSyncStatusIcon()}
+            <span className="text-white/80">{getSyncStatusText()}</span>
+            {lastSyncTime && (
+              <span className="text-white/60">
+                - آخر مزامنة: {lastSyncTime.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Game Stats */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 text-center border border-white/20">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Trophy className="text-yellow-400 w-5 h-5" />
+              <span className="text-white font-semibold">النقاط</span>
+            </div>
+            <div className="text-2xl font-bold text-yellow-400">{score}</div>
+          </div>
+          
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 text-center border border-white/20">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Shuffle className="text-blue-400 w-5 h-5" />
+              <span className="text-white font-semibold">الحركات</span>
+            </div>
+            <div className="text-2xl font-bold text-blue-400">{moves}</div>
+          </div>
+          
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 text-center border border-white/20">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Timer className="text-green-400 w-5 h-5" />
+              <span className="text-white font-semibold">الوقت</span>
+            </div>
+            <div className="text-2xl font-bold text-green-400">{formatTime(timeElapsed)}</div>
+          </div>
+          
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 text-center border border-white/20">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Star className="text-purple-400 w-5 h-5" />
+              <span className="text-white font-semibold">متبقي</span>
+            </div>
+            <div className="text-2xl font-bold text-purple-400">{12 - (matchedCards.length / 2)}</div>
+          </div>
+        </div>
+
+        {/* Game Board */}
+        <div className="grid grid-cols-6 gap-3 mb-6">
+          {cards.map((card) => (
+            <div
+              key={card.id}
+              onClick={() => handleCardClick(card.id)}
+              className={`
+                aspect-square rounded-xl cursor-pointer transform transition-all duration-500 hover:scale-105
+                ${isCardFlipped(card.id) 
+                  ? isCardMatched(card.id)
+                    ? `bg-gradient-to-br ${card.color} shadow-lg rotate-0 ring-2 ring-green-400`
+                    : `bg-gradient-to-br ${card.color} shadow-lg rotate-0`
+                  : 'bg-gradient-to-br from-gray-600 to-gray-800 shadow-lg hover:from-gray-500 hover:to-gray-700'
+                }
+              `}
+            >
+              <div className="w-full h-full flex flex-col items-center justify-center p-2">
+                {isCardFlipped(card.id) ? (
+                  <>
+                    <div className="text-3xl mb-1 animate-bounce">{card.image}</div>
+                    <div className="text-white text-xs font-bold text-center leading-tight">
+                      {card.name}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-4xl text-white/30">❓</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Control Buttons */}
+        <div className="flex justify-center gap-4">
+          <button
+            onClick={() => {
+              setShowNameInput(true);
+              setShowLeaderboard(false);
+            }}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg"
+          >
+            <Trophy className="w-5 h-5" />
+            التصنيفات
+          </button>
+          
+          <button
+            onClick={initializeGame}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg"
+          >
+            <RotateCcw className="w-5 h-5" />
+            لعبة جديدة
+          </button>
+        </div>
+
+        {/* Victory Modal */}
+        {gameCompleted && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-purple-600 to-pink-600 p-8 rounded-2xl text-center shadow-2xl border border-white/20 max-w-md mx-4">
+              <div className="text-6xl mb-4">🎉</div>
+              <h2 className="text-3xl font-bold text-white mb-2">ممتاز يا {playerName}!</h2>
+              <p className="text-purple-100 mb-6">لقد أكملت اللعبة بنجاح</p>
+              
+              <div className="grid grid-cols-3 gap-4 mb-6 text-center">
+                <div>
+                  <div className="text-yellow-400 font-bold text-xl">{score}</div>
+                  <div className="text-purple-200 text-sm">نقطة</div>
+                </div>
+                <div>
+                  <div className="text-blue-400 font-bold text-xl">{moves}</div>
+                  <div className="text-purple-200 text-sm">حركة</div>
+                </div>
+                <div>
+                  <div className="text-green-400 font-bold text-xl">{formatTime(timeElapsed)}</div>
+                  <div className="text-purple-200 text-sm">الوقت</div>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowNameInput(true);
+                    setShowLeaderboard(true);
+                    setGameCompleted(false);
+                  }}
+                  className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition-colors duration-200"
+                >
+                  <Trophy className="inline w-4 h-4 ml-1" />
+                  التصنيفات
+                </button>
+                <button
+                  onClick={() => {
+                    initializeGame();
+                    setGameCompleted(false);
+                  }}
+                  className="flex-1 px-4 py-3 bg-white text-purple-600 rounded-xl font-semibold hover:bg-purple-50 transition-colors duration-200"
+                >
+                  العب مرة أخرى
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default FinessMatchCardsMemoryGame;
